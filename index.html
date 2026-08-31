@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#17365d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="学习助手">
+  <title>学习任务助手</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">40 天深度学习计划</p>
+      <h1>学习任务助手</h1>
+    </div>
+    <div class="top-actions">
+      <span id="saveState">已自动保存</span>
+      <button id="exportArchive" class="ghost">导出完整档案</button>
+      <button id="exportMd" class="primary">导出当天作业</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <aside class="sidebar">
+      <button class="nav active" data-view="dashboard">学习总览</button>
+      <button class="nav" data-view="learn">今日学习</button>
+      <button class="nav" data-view="journal">学习日记</button>
+      <button class="nav" data-view="plans">计划中心</button>
+      <button class="nav" data-view="document">学习文档</button>
+      <button class="nav" data-view="homework">当天作业</button>
+      <div class="progress-card">
+        <span>完成进度</span>
+        <strong id="progressText">0 / 0</strong>
+        <div class="bar"><i id="progressBar"></i></div>
+      </div>
+      <button id="newDay" class="ghost danger">清空并开始新一天</button>
+    </aside>
+
+    <section class="workspace">
+      <div id="dashboardView" class="view active">
+        <section class="dashboard-hero">
+          <div>
+            <p class="eyebrow">学习驾驶舱</p>
+            <h2>今天继续向前一点</h2>
+            <p id="dashboardNext">尚未填写下一步计划。</p>
+          </div>
+          <div class="ring" id="overallRing"><strong id="overallPercent">0%</strong><span>总进度</span></div>
+        </section>
+        <div class="stats-grid">
+          <article class="stat-card"><span>累计学习</span><strong id="totalHours">0.0h</strong><small>来自学习日记</small></article>
+          <article class="stat-card"><span>学习天数</span><strong id="studyDays">0</strong><small>已保存日记</small></article>
+          <article class="stat-card"><span>当前任务</span><strong id="taskProgressMini">0 / 0</strong><small>助手文档进度</small></article>
+          <article class="stat-card"><span>近期连续</span><strong id="studyStreak">0天</strong><small>连续记录日记</small></article>
+        </div>
+        <section class="panel timer-panel">
+          <div><p class="step">今日学习计时</p><h2 id="timerClock">00:00:00</h2><p id="timerStatus" class="hint">尚未开始计时。开始学习时打卡，结束或暂时离开时点击“离开并结束”。</p></div>
+          <div class="timer-actions"><button id="clockIn" class="primary">开始打卡</button><button id="clockOut" class="ghost" disabled>离开并结束</button></div>
+        </section>
+        <section class="panel calendar-panel">
+          <div class="panel-head"><div><p class="step">学习轨迹</p><h2>学习日历</h2></div><div class="calendar-nav"><button id="calendarPrev" class="ghost" aria-label="上个月">‹</button><strong id="calendarMonth"></strong><button id="calendarNext" class="ghost" aria-label="下个月">›</button></div></div>
+          <div class="calendar-weekdays"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+          <div id="studyCalendar" class="study-calendar"></div>
+          <div class="calendar-legend"><span>学习时长</span><i class="heat-0"></i><i class="heat-1"></i><i class="heat-2"></i><i class="heat-3"></i><i class="heat-4"></i><span>更多</span></div>
+          <p class="hint">颜色按当天累计学习时长加深。点击日期可查看或补写当天记录。</p>
+        </section>
+        <section class="panel device-panel">
+          <div class="panel-head">
+            <div><p class="step">电脑 ↔ iPad</p><h2>设备数据迁移</h2></div>
+            <span id="appMode" class="status-pill">本机保存</span>
+          </div>
+          <p class="hint">换设备前导出数据到 iCloud Drive，在另一台设备选择该文件导入。导入会替换该设备上的现有记录。</p>
+          <div class="device-actions">
+            <button id="exportDeviceData" class="primary">导出全部数据</button>
+            <label class="file-button ghost">导入数据<input id="importDeviceData" type="file" accept="application/json,.json"></label>
+            <button id="installApp" class="ghost hidden">安装到主屏幕</button>
+          </div>
+          <div id="iosInstallHint" class="ios-hint hidden">在 iPad Safari 中点击“分享”按钮，然后选择“添加到主屏幕”，以后就能像 App 一样打开。</div>
+        </section>
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-head"><div><p class="step">当前焦点</p><h2>当前计划</h2></div><button class="ghost jump-plan">去填写</button></div>
+            <div id="currentPlanPreview" class="empty-copy">尚未录入当前计划。</div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><div><p class="step">接下来</p><h2>下一步计划</h2></div><button class="ghost jump-plan">去填写</button></div>
+            <div id="nextPlanPreview" class="empty-copy">尚未录入下一步计划。</div>
+          </section>
+        </div>
+        <section class="panel">
+          <div class="panel-head"><div><p class="step">最近记录</p><h2>学习日记</h2></div><button id="quickJournal" class="primary">记录今天</button></div>
+          <div id="recentJournal" class="timeline"></div>
+        </section>
+      </div>
+
+      <div id="learnView" class="view">
+        <section id="inputPanel" class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="step">第一步</p>
+              <h2>粘贴当天任务</h2>
+            </div>
+            <button id="loadSample" class="ghost">载入示例</button>
+          </div>
+          <p class="hint">将我按固定格式生成的内容粘贴到下方。知识点可写多个 <code>### 知识点名称</code>，应用会自动分成学习卡片。</p>
+          <textarea id="taskInput" rows="18" placeholder="# Day 1：DCGAN 原理预习&#10;## 当前任务&#10;..."></textarea>
+          <div class="row">
+            <label>学习日期 <input id="studyDate" type="date"></label>
+            <button id="parseTask" class="primary">生成学习页面</button>
+          </div>
+          <details>
+            <summary>查看固定格式</summary>
+            <pre id="formatHelp"></pre>
+          </details>
+        </section>
+
+        <section id="lessonPanel" class="hidden">
+          <div class="lesson-hero">
+            <div>
+              <p id="lessonDate" class="eyebrow"></p>
+              <h2 id="lessonTitle"></h2>
+              <p id="lessonTask"></p>
+            </div>
+            <button id="editSource" class="ghost">修改原始任务</button>
+          </div>
+          <div class="lesson-grid">
+            <article class="panel">
+              <p class="step">任务讲解</p>
+              <div id="explanation" class="rich"></div>
+            </article>
+            <article class="panel accent">
+              <p class="step">重点关注</p>
+              <div id="focus" class="rich"></div>
+            </article>
+          </div>
+          <div class="section-head">
+            <div>
+              <p class="step">分段学习</p>
+              <h2>知识点</h2>
+            </div>
+            <span id="cardCounter"></span>
+          </div>
+          <div id="knowledgeCards"></div>
+          <div class="section-head">
+            <div>
+              <p class="step">完成检查</p>
+              <h2>回答与证据</h2>
+            </div>
+          </div>
+          <div id="checks"></div>
+        </section>
+      </div>
+
+      <div id="journalView" class="view">
+        <section class="panel paste-panel">
+          <div class="panel-head"><div><p class="step">一次录入</p><h2>日记总粘贴</h2></div><button id="parseJournalPaste" class="ghost">自动拆分到下方</button></div>
+          <textarea id="journalPaste" rows="10" placeholder="# 学习日记&#10;- 日期：2026-08-16&#10;- 学习时长：3&#10;- 状态：已完成&#10;## 当天学习计划&#10;……&#10;## 实际完成情况&#10;……&#10;## 产出与证据&#10;……&#10;## 困惑与问题&#10;……&#10;## 下一步&#10;……"></textarea>
+          <p class="hint">把我生成的一整篇标准日记粘贴进来，点击按钮后会填入各字段；确认无误后再保存。</p>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <div><p class="step">每日闭环</p><h2>学习日记</h2></div>
+            <button id="newJournalEntry" class="ghost">新建记录</button>
+          </div>
+          <p class="hint">记录计划、完成情况、实际产出和下一步。保存后会进入历史，并自动计算累计时长。</p>
+          <input id="journalId" type="hidden">
+          <div class="form-grid three">
+            <label>日期<input id="journalDate" type="date"></label>
+            <label>学习时长（小时）<input id="journalHours" type="number" min="0" max="24" step="0.25" placeholder="如 3"></label>
+            <label>状态<select id="journalStatus"><option>进行中</option><option>已完成</option><option>部分完成</option><option>暂停</option></select></label>
+          </div>
+          <label class="field">当天学习计划<textarea id="journalPlan" placeholder="粘贴或填写今天准备完成的内容……"></textarea></label>
+          <label class="field">实际完成情况<textarea id="journalDone" placeholder="完成了哪些，哪些没有完成，原因是什么……"></textarea></label>
+          <label class="field">产出与证据<textarea id="journalOutputs" placeholder="Notebook、代码、指标、结果图、文档或文件路径……"></textarea></label>
+          <div class="form-grid two">
+            <label class="field">困惑与问题<textarea id="journalProblems" placeholder="记录未解决问题和已尝试的方法……"></textarea></label>
+            <label class="field">下一步<textarea id="journalNext" placeholder="下一次开始时先做什么……"></textarea></label>
+          </div>
+          <div class="row"><button id="saveJournal" class="primary">保存日记</button></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><p class="step">可追溯记录</p><h2>历史日记</h2></div><button id="exportJournal" class="ghost">导出全部日记</button></div>
+          <div id="journalList" class="journal-list"></div>
+        </section>
+      </div>
+
+      <div id="plansView" class="view">
+        <section class="panel paste-panel">
+          <div class="panel-head"><div><p class="step">一次录入</p><h2>计划总粘贴</h2></div><button id="parsePlansPaste" class="ghost">自动拆分到下方</button></div>
+          <textarea id="plansPaste" rows="12" placeholder="# 学习计划&#10;- 当前完成进度：10%&#10;## 总计划&#10;……&#10;## 季度计划&#10;……&#10;## 月计划&#10;……&#10;## 当前计划&#10;……&#10;## 下一步计划&#10;……&#10;## 周复盘&#10;……"></textarea>
+          <p class="hint">粘贴整份标准计划后自动拆分；点击“保存全部计划”后才正式保存。</p>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><p class="step">长期方向</p><h2>计划中心</h2></div><button id="savePlans" class="primary">保存全部计划</button></div>
+          <p class="hint">所有内容先保持空白。你和我讨论完后，可以整段粘贴录入；保存后会显示在学习总览。</p>
+          <label class="field">总计划<textarea id="totalPlan" class="plan-area large" placeholder="粘贴完整总计划……"></textarea></label>
+          <div class="form-grid two">
+            <label class="field">季度计划<textarea id="quarterPlan" class="plan-area" placeholder="粘贴本季度计划……"></textarea></label>
+            <label class="field">月计划<textarea id="monthPlan" class="plan-area" placeholder="粘贴本月计划……"></textarea></label>
+          </div>
+          <div class="form-grid two">
+            <label class="field">当前计划<textarea id="currentPlan" class="plan-area" placeholder="粘贴当前阶段计划……"></textarea></label>
+            <label class="field">下一步计划<textarea id="nextPlan" class="plan-area" placeholder="粘贴下一步计划……"></textarea></label>
+          </div>
+          <div class="progress-editor">
+            <div><p class="step">当前完成进度</p><strong id="manualProgressLabel">0%</strong></div>
+            <input id="manualProgress" type="range" min="0" max="100" step="1" value="0">
+            <p class="hint">该数值由你根据阶段成果手动调整；每日任务进度仍会单独自动计算。</p>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><p class="step">周期复盘</p><h2>周复盘模板</h2></div><button id="copyWeeklyReview" class="ghost">复制模板</button></div>
+          <textarea id="weeklyReview" class="plan-area" placeholder="本周完成：&#10;关键产出：&#10;遇到的问题：&#10;下周重点：&#10;需要老师指导："></textarea>
+        </section>
+      </div>
+
+      <div id="documentView" class="view">
+        <section class="panel document-panel">
+          <div class="panel-head">
+            <div>
+              <p class="step">长内容与个人笔记</p>
+              <h2>学习文档</h2>
+            </div>
+            <button id="insertLesson" class="ghost">插入当天讲解</button>
+          </div>
+          <p class="hint">适合存放较长的讲解、公式理解、代码片段和实验记录。内容会自动保存，并并入当天作业。</p>
+          <div class="editor-tools">
+            <button data-insert="## 我的理解&#10;">二级标题</button>
+            <button data-insert="```python&#10;&#10;```">代码块</button>
+            <button data-insert="- ">列表</button>
+            <button data-insert="> ">重点</button>
+          </div>
+          <textarea id="documentEditor" class="document-editor" placeholder="# 今日学习文档&#10;&#10;在这里写详细笔记……"></textarea>
+        </section>
+      </div>
+
+      <div id="homeworkView" class="view">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="step">自动整理</p>
+              <h2>当天作业预览</h2>
+            </div>
+            <div class="row compact">
+              <button id="copyHomework" class="ghost">复制全文</button>
+              <button id="exportJson" class="ghost">备份数据</button>
+            </div>
+          </div>
+          <p class="hint">提交给我时，直接复制下方内容或导出 Markdown 文件即可。</p>
+          <textarea id="homeworkPreview" class="homework-preview" readonly></textarea>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "深度学习任务助手",
+  "short_name": "学习助手",
+  "description": "用于深度学习计划、知识点、作业、日历和学习计时。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fa",
+  "theme_color": "#17365d",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
