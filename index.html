@@ -105,7 +105,10 @@
               <p class="step">第一步</p>
               <h2>粘贴当天任务</h2>
             </div>
-            <button id="loadSample" class="ghost">载入示例</button>
+            <div class="import-actions">
+              <label class="file-button ghost">导入 Markdown<input id="taskFileInput" type="file" accept=".md,text/markdown,text/plain"></label>
+              <button id="loadSample" class="ghost">载入示例</button>
+            </div>
           </div>
           <p class="hint">将我按固定格式生成的内容粘贴到下方。知识点可写多个 <code>### 知识点名称</code>，应用会自动分成学习卡片。</p>
           <textarea id="taskInput" rows="18" placeholder="# Day 1：DCGAN 原理预习&#10;## 当前任务&#10;..."></textarea>
@@ -126,7 +129,10 @@
               <h2 id="lessonTitle"></h2>
               <p id="lessonTask"></p>
             </div>
-            <button id="editSource" class="ghost">修改原始任务</button>
+            <div class="lesson-actions">
+              <button id="jumpIncomplete" class="primary">第一个未完成</button>
+              <button id="editSource" class="ghost">修改原始任务</button>
+            </div>
           </div>
           <div class="lesson-grid">
             <article class="panel">
@@ -153,6 +159,7 @@
             </div>
           </div>
           <div id="checks"></div>
+          <div class="lesson-bottom-actions"><button id="backToLessonTop" class="primary">↑ 一键回到顶部</button></div>
         </section>
       </div>
 

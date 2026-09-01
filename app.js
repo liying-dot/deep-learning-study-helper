@@ -67,8 +67,8 @@ function renderLesson(){
   $("#lessonTitle").textContent=state.lesson.title;$("#lessonTask").textContent=state.lesson.task;$("#lessonDate").textContent=state.date;
   $("#explanation").innerHTML=rich(state.lesson.explanation);$("#focus").innerHTML=rich(state.lesson.focus);
   $("#cardCounter").textContent=`共 ${state.lesson.knowledge.length} 个知识点`;
-  $("#knowledgeCards").innerHTML=state.lesson.knowledge.map((k,i)=>`<article class="knowledge-card ${state.cardImportant[i]?"important":""}"><button class="card-head" data-toggle="${i}"><span>${state.cardImportant[i]?'<b class="important-badge">重点</b> ':""}${i+1}. ${esc(k.title)}</span><span>展开/收起</span></button><div class="card-body">${rich(k.body)}<div class="knowledge-actions"><label class="important-toggle"><input type="checkbox" data-important="${i}" ${state.cardImportant[i]?"checked":""}>标记为重点</label><label class="card-done"><input type="checkbox" data-card="${i}" ${state.cardDone[i]?"checked":""}>我已理解并能复述</label></div><label class="confusion-label" for="confusion-${i}">针对本知识点的困惑</label><textarea id="confusion-${i}" class="confusion-input" data-confusion="${i}" placeholder="例如：我不明白这一层的输入输出 shape；如果没有困惑，可以留空。">${esc(state.cardNotes[i]||"")}</textarea></div></article>`).join("")||'<div class="panel">尚未识别到知识点，请用“### 知识点名称”分段。</div>';
-  $("#checks").innerHTML=state.lesson.checks.map(c=>`<article class="check-card"><label>${c.type} · ${esc(c.text)}</label>${c.type==="确认"?`<div class="status-line"><input type="checkbox" data-confirm="${c.id}" ${state.done[c.id]?"checked":""}>确认完成</div>`:`<textarea data-answer="${c.id}" placeholder="${c.type==="问题"?"用自己的话回答……":"粘贴输出、结果或文件位置……"}">${esc(state.answers[c.id]||"")}</textarea><div class="status-line"><input type="checkbox" data-check="${c.id}" ${state.done[c.id]?"checked":""}>标记为已完成</div>`}</article>`).join("");
+  $("#knowledgeCards").innerHTML=state.lesson.knowledge.map((k,i)=>`<article class="knowledge-card ${state.cardImportant[i]?"important":""}" data-knowledge-index="${i}"><button class="card-head" data-toggle="${i}"><span>${state.cardImportant[i]?'<b class="important-badge">重点</b> ':""}${i+1}. ${esc(k.title)}</span><span>展开/收起</span></button><div class="card-body">${rich(k.body)}<div class="knowledge-actions"><label class="important-toggle"><input type="checkbox" data-important="${i}" ${state.cardImportant[i]?"checked":""}>标记为重点</label><label class="card-done"><input type="checkbox" data-card="${i}" ${state.cardDone[i]?"checked":""}>我已理解并能复述</label></div><label class="confusion-label" for="confusion-${i}">针对本知识点的困惑</label><textarea id="confusion-${i}" class="confusion-input" data-confusion="${i}" placeholder="例如：我不明白这一层的输入输出 shape；如果没有困惑，可以留空。">${esc(state.cardNotes[i]||"")}</textarea></div></article>`).join("")||'<div class="panel">尚未识别到知识点，请用“### 知识点名称”分段。</div>';
+  $("#checks").innerHTML=state.lesson.checks.map(c=>`<article class="check-card" data-check-id="${c.id}"><label>${c.type} · ${esc(c.text)}</label>${c.type==="确认"?`<div class="status-line"><input type="checkbox" data-confirm="${c.id}" ${state.done[c.id]?"checked":""}>确认完成</div>`:`<textarea data-answer="${c.id}" placeholder="${c.type==="问题"?"用自己的话回答……":"粘贴输出、结果或文件位置……"}">${esc(state.answers[c.id]||"")}</textarea><div class="status-line"><input type="checkbox" data-check="${c.id}" ${state.done[c.id]?"checked":""}>标记为已完成</div>`}</article>`).join("");
   bindDynamic();save();
 }
 function bindDynamic(){
@@ -79,6 +79,14 @@ function bindDynamic(){
   $$("[data-answer]").forEach(x=>x.oninput=()=>{state.answers[x.dataset.answer]=x.value;save()});
   $$("[data-check]").forEach(x=>x.onchange=()=>{state.done[x.dataset.check]=x.checked;save()});
   $$("[data-confirm]").forEach(x=>x.onchange=()=>{state.done[x.dataset.confirm]=x.checked;save()});
+}
+function jumpToFirstIncomplete(){
+  if(!state.lesson)return;
+  let target=null;
+  for(let i=0;i<state.lesson.knowledge.length;i++){if(!state.cardDone[i]){target=document.querySelector(`[data-knowledge-index="${i}"]`);break}}
+  if(!target){const check=state.lesson.checks.find(c=>!state.done[c.id]);if(check)target=document.querySelector(`[data-check-id="${check.id}"]`)}
+  if(!target)return alert("太棒了，当前任务已经全部完成！");
+  target.classList.remove("collapsed","jump-highlight");target.scrollIntoView({behavior:"smooth",block:"center"});requestAnimationFrame(()=>target.classList.add("jump-highlight"));setTimeout(()=>target.classList.remove("jump-highlight"),1700);
 }
 function refreshProgress(){
   const total=(state.lesson?.knowledge.length||0)+(state.lesson?.checks.length||0);
@@ -176,8 +184,11 @@ function setupPortableApp(){
 }
 $("#formatHelp").textContent=FORMAT;
 $("#loadSample").onclick=()=>{$("#taskInput").value=SAMPLE};
+$("#taskFileInput").onchange=async e=>{const file=e.target.files[0];if(!file)return;if(!file.name.toLowerCase().endsWith(".md")){$("#taskFileInput").value="";return alert("请选择 .md 格式的助手文档")};if(file.size>2*1024*1024){$("#taskFileInput").value="";return alert("Markdown 文件超过 2MB，请检查是否选错文件")};try{$("#taskInput").value=await file.text();$("#taskInput").focus();$("#taskFileInput").closest("label").childNodes[0].textContent="已导入 ✓";setTimeout(()=>$("#taskFileInput").closest("label").childNodes[0].textContent="导入 Markdown",1400)}catch(error){alert("文件读取失败，请重新选择")}};
 $("#parseTask").onclick=()=>{state.source=$("#taskInput").value.trim();state.date=$("#studyDate").value;state.lesson=sections(state.source);state.answers={};state.done={};state.cardDone={};state.cardNotes={};state.cardImportant={};renderLesson()};
 $("#editSource").onclick=()=>{$("#lessonPanel").classList.add("hidden");$("#inputPanel").classList.remove("hidden")};
+$("#jumpIncomplete").onclick=jumpToFirstIncomplete;
+$("#backToLessonTop").onclick=()=>$("#lessonPanel").scrollIntoView({behavior:"smooth",block:"start"});
 function goView(name){$$(".nav").forEach(x=>x.classList.toggle("active",x.dataset.view===name));$$(".view").forEach(v=>v.classList.remove("active"));$("#"+name+"View").classList.add("active");if(name==="homework")$("#homeworkPreview").value=homework();if(name==="dashboard")renderDashboard();if(name==="journal")renderJournalList();if(name==="plans")fillPlans()}
 $$(".nav").forEach(b=>b.onclick=()=>goView(b.dataset.view));
 $("#documentEditor").oninput=e=>{state.notes=e.target.value;save()};
