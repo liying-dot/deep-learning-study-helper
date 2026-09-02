@@ -41,12 +41,13 @@ nz 是随机噪声维度，image_size 是图像尺寸，batch_size 是每批样�
 - [证据] 写下你今天看到的最后一个教程标题
 - [确认] 我可以不看原文讲出 GAN 的基本流程`;
 
-let state={source:"",date:new Date().toISOString().slice(0,10),lesson:null,answers:{},done:{},notes:"",cardDone:{},cardNotes:{},cardImportant:{},plans:{total:"",quarter:"",month:"",current:"",next:"",progress:0},journals:[],weeklyReview:"",timer:{active:false,start:null,sessions:[]}};
-let calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1),timerTick=null;
+let state={source:"",date:new Date().toISOString().slice(0,10),lesson:null,answers:{},done:{},notes:"",cardDone:{},cardNotes:{},cardImportant:{},plans:{total:"",quarter:"",month:"",current:"",next:"",progress:0},journals:[],weeklyReview:"",timer:{active:false,start:null,lastActivity:null,lastStopReason:null,lastStoppedAt:null,sessions:[]}};
+const IDLE_LIMIT_MS=5*60*1000;
+let calendarCursor=new Date(new Date().getFullYear(),new Date().getMonth(),1),timerTick=null,activityCheckTick=null,lastActivityPersistAt=0;
 let installPrompt=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 function save(){localStorage.setItem(KEY,JSON.stringify(state));$("#saveState").textContent="已自动保存 "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});refreshProgress();}
-function load(){try{state={...state,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch(e){} state.plans={total:"",quarter:"",month:"",current:"",next:"",progress:0,...(state.plans||{})};state.journals=Array.isArray(state.journals)?state.journals:[];state.timer={active:false,start:null,sessions:[],...(state.timer||{})};state.timer.sessions=Array.isArray(state.timer.sessions)?state.timer.sessions:[];$("#taskInput").value=state.source||"";$("#studyDate").value=state.date;$("#documentEditor").value=state.notes||"";fillPlans();resetJournalForm();renderJournalList();if(state.lesson)renderLesson();renderDashboard();renderTimer();}
+function load(){try{state={...state,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch(e){} state.plans={total:"",quarter:"",month:"",current:"",next:"",progress:0,...(state.plans||{})};state.journals=Array.isArray(state.journals)?state.journals:[];state.timer={active:false,start:null,lastActivity:null,lastStopReason:null,lastStoppedAt:null,sessions:[],...(state.timer||{})};state.timer.sessions=Array.isArray(state.timer.sessions)?state.timer.sessions:[];if(state.timer.active&&!state.timer.lastActivity)state.timer.lastActivity=state.timer.start;$("#taskInput").value=state.source||"";$("#studyDate").value=state.date;$("#documentEditor").value=state.notes||"";fillPlans();resetJournalForm();renderJournalList();if(state.lesson)renderLesson();renderDashboard();renderTimer();reconcileIdleTimer();}
 function sections(md){
   const title=(md.match(/^#\s+(.+)$/m)||[])[1]||"未命名学习任务";
   const map={}; let key="",sub="";
@@ -136,16 +137,30 @@ function localDate(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1
 function formatDuration(seconds){seconds=Math.max(0,Math.floor(seconds));const h=String(Math.floor(seconds/3600)).padStart(2,"0"),m=String(Math.floor(seconds%3600/60)).padStart(2,"0"),s=String(seconds%60).padStart(2,"0");return `${h}:${m}:${s}`}
 function renderTimer(){
   if(timerTick){clearInterval(timerTick);timerTick=null}
-  const draw=()=>{const active=state.timer.active&&state.timer.start;const seconds=active?(Date.now()-new Date(state.timer.start).getTime())/1000:0;$("#timerClock").textContent=formatDuration(seconds);$("#timerStatus").textContent=active?`本次从 ${new Date(state.timer.start).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} 开始，刷新页面也会继续计时。`:`尚未开始计时。今天已记录 ${todayHours().toFixed(2)} 小时。`;$("#clockIn").disabled=!!active;$("#clockOut").disabled=!active};
+  const draw=()=>{const active=state.timer.active&&state.timer.start;const seconds=active?(Date.now()-new Date(state.timer.start).getTime())/1000:0;$("#timerClock").textContent=formatDuration(seconds);const idleText=state.timer.lastStopReason==="idle"?"上一段已因连续5分钟无操作自动结束。":"当前处于自动计时待机。";$("#timerStatus").textContent=active?`自动计时中：本次从 ${new Date(state.timer.start).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} 开始；连续5分钟无操作将自动结束。`:`${idleText} 点击、触摸、滚动或键盘操作会重新开始。今天已记录 ${todayHours().toFixed(2)} 小时。`;$("#clockIn").disabled=!!active;$("#clockOut").disabled=!active};
   draw();if(state.timer.active)timerTick=setInterval(draw,1000);
 }
 function todayHours(){const today=localDate();return state.journals.filter(j=>j.date===today).reduce((s,j)=>s+Number(j.hours||0),0)}
-function clockOut(){
+function startTimer(source="auto"){
+  if(state.timer.active)return;
+  const now=new Date().toISOString();state.timer.active=true;state.timer.start=now;state.timer.lastActivity=now;state.timer.lastStopReason=null;state.timer.startedBy=source;save();renderTimer();
+}
+function finishTimer(endDate=new Date(),notifyUser=false,reason="manual"){
   if(!state.timer.active||!state.timer.start)return;
-  const end=new Date(),start=new Date(state.timer.start),seconds=Math.max(1,Math.round((end-start)/1000)),date=localDate(start);
-  state.timer.sessions.push({id:`s-${Date.now()}`,date,start:start.toISOString(),end:end.toISOString(),seconds});state.timer.active=false;state.timer.start=null;
+  const start=new Date(state.timer.start),end=new Date(Math.max(start.getTime()+1000,new Date(endDate).getTime())),seconds=Math.max(1,Math.round((end-start)/1000)),date=localDate(start);
+  state.timer.sessions.push({id:`s-${Date.now()}`,date,start:start.toISOString(),end:end.toISOString(),seconds,reason});state.timer.active=false;state.timer.start=null;state.timer.lastActivity=null;state.timer.lastStopReason=reason;state.timer.lastStoppedAt=end.toISOString();
   let journal=state.journals.find(j=>j.date===date);if(!journal){journal={id:`j-${Date.now()}`,date,hours:0,status:"进行中",plan:"",done:"",outputs:"",problems:"",next:""};state.journals.push(journal)}journal.hours=Number(journal.hours||0)+seconds/3600;
-  save();renderTimer();renderJournalList();renderDashboard();alert(`本次学习 ${formatDuration(seconds)}，已计入 ${date}。`);
+  save();renderTimer();renderJournalList();renderDashboard();if(notifyUser)alert(`本次学习 ${formatDuration(seconds)}，已计入 ${date}。`);
+}
+function clockOut(){finishTimer(new Date(),true,"manual")}
+function reconcileIdleTimer(){
+  if(!state.timer.active||!state.timer.start)return false;const last=new Date(state.timer.lastActivity||state.timer.start).getTime();if(!Number.isFinite(last)||Date.now()-last<IDLE_LIMIT_MS)return false;finishTimer(new Date(last+IDLE_LIMIT_MS),false,"idle");return true;
+}
+function registerStudyActivity(){
+  const now=Date.now();if(state.timer.active){if(reconcileIdleTimer()){startTimer("auto");return}state.timer.lastActivity=new Date(now).toISOString();if(now-lastActivityPersistAt>10000){lastActivityPersistAt=now;localStorage.setItem(KEY,JSON.stringify(state))}}else startTimer("auto");
+}
+function setupActivityTracking(){
+  ["pointerdown","keydown","touchstart"].forEach(type=>document.addEventListener(type,registerStudyActivity,{passive:true}));window.addEventListener("scroll",registerStudyActivity,{passive:true});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")registerStudyActivity()});if(activityCheckTick)clearInterval(activityCheckTick);activityCheckTick=setInterval(reconcileIdleTimer,15000);
 }
 function heatLevel(hours){return hours<=0?0:hours<=1?1:hours<=3?2:hours<=5?3:4}
 function renderCalendar(){
@@ -201,7 +216,7 @@ $("#exportJson").onclick=()=>download(`${state.date}_学习数据.json`,JSON.str
 $("#exportDeviceData").onclick=exportAllData;
 $("#importDeviceData").onchange=e=>importAllData(e.target.files[0]);
 $("#installApp").onclick=async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$("#installApp").classList.add("hidden")};
-$("#clockIn").onclick=()=>{if(state.timer.active)return;state.timer.active=true;state.timer.start=new Date().toISOString();save();renderTimer()};
+$("#clockIn").onclick=()=>startTimer("manual");
 $("#clockOut").onclick=clockOut;
 $("#calendarPrev").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);renderCalendar()};
 $("#calendarNext").onclick=()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);renderCalendar()};
@@ -218,3 +233,4 @@ $("#copyWeeklyReview").onclick=async()=>{const text=$("#weeklyReview").value||"�
 $("#newDay").onclick=()=>{if(confirm("确定清空当前学习任务、回答和学习文档，开始新一天吗？计划中心和学习日记会保留。")){state.source="";state.lesson=null;state.answers={};state.done={};state.notes="";state.cardDone={};state.cardNotes={};state.cardImportant={};state.date=new Date().toISOString().slice(0,10);save();location.reload()}};
 load();
 setupPortableApp();
+setupActivityTracking();
