@@ -137,7 +137,7 @@ function localDate(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1
 function formatDuration(seconds){seconds=Math.max(0,Math.floor(seconds));const h=String(Math.floor(seconds/3600)).padStart(2,"0"),m=String(Math.floor(seconds%3600/60)).padStart(2,"0"),s=String(seconds%60).padStart(2,"0");return `${h}:${m}:${s}`}
 function renderTimer(){
   if(timerTick){clearInterval(timerTick);timerTick=null}
-  const draw=()=>{const active=state.timer.active&&state.timer.start;const seconds=active?(Date.now()-new Date(state.timer.start).getTime())/1000:0;$("#timerClock").textContent=formatDuration(seconds);const idleText=state.timer.lastStopReason==="idle"?"上一段已因连续5分钟无操作自动结束。":"当前处于自动计时待机。";$("#timerStatus").textContent=active?`自动计时中：本次从 ${new Date(state.timer.start).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} 开始；连续5分钟无操作将自动结束。`:`${idleText} 点击、触摸、滚动或键盘操作会重新开始。今天已记录 ${todayHours().toFixed(2)} 小时。`;$("#clockIn").disabled=!!active;$("#clockOut").disabled=!active};
+  const draw=()=>{const active=state.timer.active&&state.timer.start;const seconds=active?(Date.now()-new Date(state.timer.start).getTime())/1000:0;$("#timerClock").textContent=formatDuration(seconds);const idleText=state.timer.lastStopReason==="idle"?"上一段已因连续5分钟无学习区操作自动结束。":"当前处于自动计时待机。";$("#timerStatus").textContent=active?`自动计时中：本次从 ${new Date(state.timer.start).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} 开始；连续5分钟无“今日学习”操作将自动结束。`:`${idleText} 进入“今日学习”并点击、触摸、输入或滚动会重新开始。今天已记录 ${todayHours().toFixed(2)} 小时。`;$("#clockIn").disabled=!!active;$("#clockOut").disabled=!active};
   draw();if(state.timer.active)timerTick=setInterval(draw,1000);
 }
 function todayHours(){const today=localDate();return state.journals.filter(j=>j.date===today).reduce((s,j)=>s+Number(j.hours||0),0)}
@@ -157,10 +157,10 @@ function reconcileIdleTimer(){
   if(!state.timer.active||!state.timer.start)return false;const last=new Date(state.timer.lastActivity||state.timer.start).getTime();if(!Number.isFinite(last)||Date.now()-last<IDLE_LIMIT_MS)return false;finishTimer(new Date(last+IDLE_LIMIT_MS),false,"idle");return true;
 }
 function registerStudyActivity(){
-  const now=Date.now();if(state.timer.active){if(reconcileIdleTimer()){startTimer("auto");return}state.timer.lastActivity=new Date(now).toISOString();if(now-lastActivityPersistAt>10000){lastActivityPersistAt=now;localStorage.setItem(KEY,JSON.stringify(state))}}else startTimer("auto");
+  if(!$("#learnView").classList.contains("active"))return;const now=Date.now();if(state.timer.active){if(reconcileIdleTimer()){startTimer("auto");return}state.timer.lastActivity=new Date(now).toISOString();if(now-lastActivityPersistAt>10000){lastActivityPersistAt=now;localStorage.setItem(KEY,JSON.stringify(state))}}else startTimer("auto");
 }
 function setupActivityTracking(){
-  ["pointerdown","keydown","touchstart"].forEach(type=>document.addEventListener(type,registerStudyActivity,{passive:true}));window.addEventListener("scroll",registerStudyActivity,{passive:true});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")registerStudyActivity()});if(activityCheckTick)clearInterval(activityCheckTick);activityCheckTick=setInterval(reconcileIdleTimer,15000);
+  const learnView=$("#learnView");["pointerdown","keydown","touchstart"].forEach(type=>learnView.addEventListener(type,registerStudyActivity,{passive:true}));window.addEventListener("scroll",()=>{if(learnView.classList.contains("active"))registerStudyActivity()},{passive:true});document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reconcileIdleTimer()});if(activityCheckTick)clearInterval(activityCheckTick);activityCheckTick=setInterval(reconcileIdleTimer,15000);
 }
 function heatLevel(hours){return hours<=0?0:hours<=1?1:hours<=3?2:hours<=5?3:4}
 function renderCalendar(){
